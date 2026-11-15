@@ -1,0 +1,968 @@
+/* =========================================================
+   文芸誌 — 色は表紙からとっています
+   ========================================================= */
+:root {
+  /* 表紙の色 */
+  --night: #1a2029;        /* 背景の紺 */
+  --night-deep: #11151c;   /* いちばん暗いところ */
+  --night-soft: #252c37;   /* 少し明るい紺 */
+  --light: #f3e4c8;        /* 扉からさす光・タイトルの生成り */
+  --paper: #f1e6cf;        /* ページの紙 */
+  --ink: #1f2530;          /* 本文の文字（紺がかった墨） */
+
+  /* 本の大きさ（表紙と同じ 2:3。ひらいたとき画面に収まるように） */
+  --h: min(80vh, 66vw);
+  --w: calc(var(--h) * 2 / 3);
+  --thick: calc(var(--h) * 0.085);   /* 本の厚み（背の幅。js/shelf.js の SPINE と同じ割合） */
+
+  --ease: cubic-bezier(0.65, 0, 0.25, 1);
+  --duration: 1.6s;   /* 表紙がひらく時間 */
+  --turn: 1.1s;       /* ページをめくる時間 */
+
+  /* 本文の組み方（縦書き一段組。文庫本くらいの 1 行 38 字・1 ページ 16 行）
+     スマートフォンでは下の :root.is-phone で、字を大きく組みなおす */
+  --line: calc(var(--h) * 0.76);             /* 1 行の長さ（ページの高さの 76%） */
+  --chars: 38;                               /* 1 行の字数 */
+  --cols: 16;                                /* 1 ページの行数 */
+  --leading: 1.7;                            /* 行送り（文字の大きさの何倍か） */
+  --fs: calc(var(--line) / var(--chars));    /* 文字の大きさ（1 行に字数がちょうど入る大きさ） */
+  --pitch: calc(var(--fs) * var(--leading)); /* 行と行の間隔（行送り） */
+
+  --mincho: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho",
+            "Noto Serif JP", "Noto Serif CJK JP", serif;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--night);
+  color: var(--light);
+  font-family: var(--mincho);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 舞台（背景） ---------- */
+.stage {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  place-items: center;
+  perspective: calc(var(--h) * 3);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 50%, var(--night-soft) 0%, var(--night) 55%, var(--night-deep) 100%);
+}
+
+/* ---------- 背景の本棚（js/shelf.js が描く） ---------- */
+.shelf {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  filter: blur(0.8px);              /* 少しだけピントを外して、奥にあるように */
+  transition: opacity 2.6s ease 0.5s;
+}
+.shelf.is-ready { opacity: 1; }
+.shelf canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.shelf .shelf__bloom { mix-blend-mode: screen; }
+
+/* 画面のふちを暗く落とす */
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(8, 10, 14, 0) 50%, rgba(8, 10, 14, 0.8) 100%);
+}
+/* 本のまわりを暗く落として、主役の本を浮かび上がらせる（本が棚の中にあるあいだは出さない） */
+.atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(calc(var(--w) * 1.25) calc(var(--h) * 0.85) at 50% 50%,
+      rgba(17, 21, 28, 0.88) 0%, rgba(17, 21, 28, 0.6) 55%, rgba(17, 21, 28, 0) 100%);
+  transition: opacity 2.4s ease 0.8s;
+}
+.stage.is-shelved .atmosphere::before { opacity: 0; }
+
+/* 本棚の中で光っている一冊にふれるところ（js/main.js が本の位置に重ねる） */
+.pick {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pick:focus-visible { outline: 1px solid rgba(243, 228, 200, 0.6); outline-offset: 2px; }
+/* 紙のざらつき（表紙の質感に寄せる） */
+.atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 光の中をただよう粒 */
+.motes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.mote {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: var(--light);
+  box-shadow: 0 0 6px rgba(243, 228, 200, 0.6);
+  opacity: 0;
+  animation: drift var(--duration) linear var(--delay) infinite;
+}
+@keyframes drift {
+  0%   { opacity: 0;    transform: translate(0, 0); }
+  20%  { opacity: 0.7; }
+  80%  { opacity: 0.4; }
+  100% { opacity: 0;    transform: translate(var(--dx), -120px); }
+}
+
+/* ときどき、ちらりときらめく粒 */
+.mote--glint {
+  box-shadow: 0 0 4px 1px rgba(243, 228, 200, 0.9), 0 0 14px 3px rgba(243, 228, 200, 0.35);
+  animation: glint var(--duration) ease-in-out var(--delay) infinite;
+}
+@keyframes glint {
+  0%, 60%, 100% { opacity: 0;   transform: scale(0.4); }
+  75%           { opacity: 0.9; transform: scale(1); }
+}
+
+/* 本をひらいたら、本棚の明かりを絞って読むことに集中できるように */
+.stage:has(.book.is-open) .shelf {
+  opacity: 0.4;
+  transition: opacity var(--duration) var(--ease);
+}
+.stage:has(.book.is-open) .motes { opacity: 0.5; transition: opacity var(--duration) var(--ease); }
+
+/* ひらくと、扉の光のようなあかりが本の奥にともる */
+.stage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--w) * 3.2);
+  height: calc(var(--h) * 1.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(243, 228, 200, 0.16) 0%, rgba(243, 228, 200, 0.05) 40%, transparent 70%);
+  opacity: 0;
+  transition: opacity var(--duration) var(--ease);
+  z-index: 0;
+}
+.stage:has(.book.is-open)::after { opacity: 1; }
+
+/* ---------- 本 ---------- */
+.book {
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  transform-style: preserve-3d;
+  transition: transform var(--duration) var(--ease);
+  animation: arrive 1.4s var(--ease) backwards;
+  z-index: 1;
+}
+
+/* 右綴じの本なので、ひらくと左へずれて見開きが画面の真ん中に来る */
+.book.is-open { transform: translateX(calc(var(--w) * -0.5)); }
+
+/* はじめは本棚の中（光る一冊にふれると、js/main.js が棚から取り出す） */
+.book.is-shelved { visibility: hidden; }
+
+/* 本の背と裏表紙。棚から取り出して、くるりとこちらを向くあいだに見える。
+   ふだんは向こうを向いているので見えない */
+.book__spine,
+.book__back {
+  position: absolute;
+  pointer-events: none;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+/* 背：本の右のふち（右綴じ）から、奥へ向かう面 */
+.book__spine {
+  top: 0;
+  left: 100%;
+  width: var(--thick);
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: calc(var(--h) * 0.12);
+  transform-origin: left center;
+  transform: rotateY(90deg);
+  border-radius: 2px;
+  background: linear-gradient(to right, #12161d 0%, var(--night-soft) 22%, var(--night) 62%, #0e1218 100%);
+}
+/* 背の上下の、細い箔の線 */
+.book__spine::before,
+.book__spine::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: rgba(243, 228, 200, 0.45);
+}
+.book__spine::before { top: 6%; }
+.book__spine::after  { bottom: 6%; }
+.book__spine-title {
+  writing-mode: vertical-rl;
+  font-size: calc(var(--thick) * 0.4);
+  letter-spacing: 0.35em;
+  white-space: nowrap;
+  color: var(--light);
+  opacity: 0.85;
+}
+/* 裏表紙：いちばん奥にあって、向こうを向いている面 */
+.book__back {
+  inset: 0;
+  transform: translateZ(calc(var(--thick) * -1)) rotateY(180deg);
+  border-radius: 1px 3px 3px 1px;
+  background: linear-gradient(to bottom, var(--night-soft), var(--night-deep));
+}
+/* 棚から抜き出すとき、背にはまだ棚の光が残っている。しまうときは、棚に近づくにつれて光りだす */
+.book.is-pulling .book__spine { animation: spine-glow 2.6s ease-out; }
+.book.is-putting .book__spine { animation: spine-glow 3.4s ease-in reverse both; }
+@keyframes spine-glow {
+  from {
+    box-shadow: 0 0 calc(var(--thick) * 0.6) rgba(243, 228, 200, 0.75),
+                inset 0 0 calc(var(--thick) * 0.35) rgba(243, 228, 200, 0.4);
+  }
+  to {
+    box-shadow: 0 0 0 rgba(243, 228, 200, 0), inset 0 0 0 rgba(243, 228, 200, 0);
+  }
+}
+
+@keyframes arrive {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 本がふわっと現れるあいだ（.book の透明度が動くあいだ）は、ブラウザが紙の前後を
+   正しく重ねられず、中の紙が表紙より手前に見えてしまう。そのあいだは中の紙を隠しておく */
+.leaf:not(.cover) { animation: hide-while-arriving 1.4s; }
+@keyframes hide-while-arriving {
+  0%, 100% { visibility: hidden; }
+}
+
+/* 中身の紙の束 */
+.block {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px 0 0 2px;
+  background: var(--paper);
+  /* 小口（左側）に紙の重なりを見せる */
+  box-shadow:
+    -1px 1px 0 #e3d6bc,
+    -2px 2px 0 #f1e6cf,
+    -3px 3px 0 #ddd0b5,
+    -4px 4px 0 #ece1c9,
+    -5px 5px 0 #d4c6aa,
+    -12px 22px 40px rgba(0, 0, 0, 0.55);
+  transform: translateZ(calc(var(--z, 1) * -1px));
+}
+
+/* ---------- ページ ---------- */
+.page {
+  position: absolute;
+  inset: 0;
+  display: block;
+  color: var(--ink);
+  background: var(--paper);
+}
+/* のど（綴じ目）側の影：左ページは右側、右ページは左側 */
+.page--left {
+  background:
+    linear-gradient(to left, rgba(60, 45, 25, 0.22) 0%, rgba(60, 45, 25, 0.06) 6%, transparent 14%),
+    var(--paper);
+}
+.page--right {
+  background:
+    linear-gradient(to right, rgba(60, 45, 25, 0.22) 0%, rgba(60, 45, 25, 0.06) 6%, transparent 14%),
+    var(--paper);
+}
+
+/* ページ数（ノンブル）：下の外側の角 */
+.page__number {
+  position: absolute;
+  bottom: calc(var(--h) * 0.045);
+  font-size: max(calc(var(--h) * 0.017), 9px);   /* 小さな画面でも読める大きさは残す */
+  letter-spacing: 0.05em;
+  color: rgba(31, 37, 48, 0.55);
+}
+.page--left .page__number  { left:  calc(var(--w) * 0.1); }
+.page--right .page__number { right: calc(var(--w) * 0.1); }
+
+/* ページの真ん中に置くもの（ロゴなど） */
+.page__center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.page__image {
+  width: 22%;
+  height: auto;
+  opacity: 0.7;
+}
+
+/* 縦書き一段組：1 ページ分の窓から、長い文章の一部をのぞかせる */
+.page__flow-window {
+  position: absolute;
+  top: calc((var(--h) - var(--line)) / 2 - var(--h) * 0.01);  /* 上下のまん中より少し上 */
+  left: 50%;
+  width: calc(var(--pitch) * var(--cols));
+  height: calc(var(--line) + 0.5px);   /* ちょうど 1 行の字数が入る長さ（0.5px は計算の誤差のぶん） */
+  transform: translateX(-50%);
+  overflow: hidden;
+}
+.flow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  writing-mode: vertical-rl;
+  font-size: var(--fs);
+  line-height: var(--pitch);
+  letter-spacing: 0;                    /* 文庫本と同じ、字と字のあいだをあけない組み方 */
+  text-align: justify;
+  line-break: strict;
+  /* n ページ目は、n ページ分だけ右へずらして続きを見せる */
+  transform: translateX(calc(var(--n, 0) * var(--pitch) * var(--cols)));
+}
+.flow p { margin: 0; }
+.flow__header { margin: 0 0 0 var(--pitch); }  /* 題（と作者名）のあとに 1 行あける */
+.flow h2 {
+  margin: 0;
+  padding-inline-start: 2em;            /* 少し下げて置く */
+  font-size: 1.3em;
+  line-height: calc(var(--pitch) * 2);  /* 見出しは 2 行分の幅 */
+  font-weight: 600;
+  letter-spacing: 0.3em;
+}
+.flow .author {
+  padding-inline-end: 1em;              /* 作者名は地付きから一字上げ */
+  text-align: end;
+}
+.flow .signature {
+  margin-block-start: var(--pitch);     /* 署名の前に 1 行あける */
+  padding-inline-end: 1em;              /* 地付きから一字上げ */
+  text-align: end;
+}
+
+/* 目次：1 作品 1 行。題 …… 作者名 ページ数 */
+.toc__item {
+  display: flex;                         /* 縦書きなので、上から下へ並ぶ */
+  align-items: center;
+  padding-inline: 1em 0.5em;             /* 天から一字下げ */
+}
+.toc__leader {
+  flex: 1;
+  min-inline-size: 1em;
+  margin-inline: 0.6em;
+  align-self: stretch;
+  opacity: 0.45;
+  background: radial-gradient(circle, currentColor 0.07em, transparent 0.09em) center top / 100% 0.55em repeat-y;
+}
+.toc__author { letter-spacing: 0.1em; }
+.toc__page {
+  min-inline-size: 2.2em;                /* ページ数の位置をそろえる */
+  text-align: end;
+}
+.toc__number { text-combine-upright: all; }  /* 数字は縦中横 */
+
+/* 作品の扉：画像を 1 ページいっぱいに（形が合わなくても、切れずに収まる） */
+.page__full {
+  position: absolute;
+  inset: 0;
+}
+.page__full-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ページ数を数えるための見えない測り */
+.page.measure {
+  position: fixed;
+  inset: auto;
+  left: -9999px;
+  top: 0;
+  width: var(--w);
+  height: var(--h);
+  visibility: hidden;
+}
+
+/* ---------- 表紙 ---------- */
+.cover { all: unset; }
+
+/* ---------- 紙（表紙も、中の紙も） ----------
+   右側が背（綴じ目）。めくると右側へ 180 度まわる。
+   --z は重なり順（上の紙ほど手前、めくった紙は最後にめくったものほど手前） */
+.leaf {
+  position: absolute;
+  inset: 0;
+  display: block;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transform-origin: right center;
+  transform: rotateY(0deg) translateZ(calc(var(--z, 0) * -1px));
+  transition: transform var(--turn) var(--ease);
+}
+.leaf.is-flipped { transform: rotateY(180deg) translateZ(calc(var(--z, 0) * -1px)); }
+.cover { --turn: var(--duration); }
+
+.leaf__face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+.leaf__front { border-radius: 2px 0 0 2px; }
+.leaf__back  { transform: rotateY(180deg); border-radius: 0 2px 2px 0; }
+
+/* めくっている途中、紙に影が落ちる */
+.leaf__face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(to left, rgba(20, 24, 32, 0.28), rgba(20, 24, 32, 0) 70%);
+}
+.leaf__back::before {
+  background: linear-gradient(to right, rgba(20, 24, 32, 0.28), rgba(20, 24, 32, 0) 70%);
+}
+.leaf.is-turning .leaf__face::before { animation: turn-shade var(--turn) var(--ease); }
+@keyframes turn-shade {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+
+.cover__front,
+.cover__back {
+  position: absolute;
+  inset: 0;
+  display: block;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 3px 1px 1px 3px;
+  overflow: hidden;
+}
+
+/* 表紙の絵が無いとき（文例など）は、扉からさしこむ光だけの無地の表紙 */
+.cover__front {
+  box-shadow: -10px 20px 40px rgba(0, 0, 0, 0.5);
+  background:
+    radial-gradient(ellipse 7% 36% at 50% 60%, rgba(243, 228, 200, 0.5), rgba(243, 228, 200, 0) 70%),
+    linear-gradient(to bottom, var(--night-soft), var(--night-deep));
+}
+.cover__front img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* 背のあたりの折り目 */
+.cover__front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to left,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(255, 255, 255, 0.07) 1.6%,
+    rgba(0, 0, 0, 0.12) 3.4%,
+    transparent 7%);
+}
+
+/* 表紙の裏 = ひらいたときの右ページ（扉） */
+.cover__back {
+  transform: rotateY(180deg);
+  border-radius: 1px 3px 3px 1px;
+  background:
+    linear-gradient(to right, rgba(60, 45, 25, 0.22) 0%, rgba(60, 45, 25, 0.06) 6%, transparent 14%),
+    var(--paper);
+  color: var(--ink);
+}
+
+.title-page {
+  position: absolute;
+  inset: calc(var(--h) * 0.12) calc(var(--w) * 0.16);
+  display: flex;
+  flex-direction: column;          /* 縦書きなので、右から左へ並ぶ */
+  writing-mode: vertical-rl;
+}
+.title-page__title {
+  align-self: flex-start;
+  font-size: calc(var(--h) * 0.06);
+  letter-spacing: 0.35em;
+  line-height: 1;
+}
+.title-page__credit,
+.title-page__editor {
+  align-self: flex-end;
+  font-size: max(calc(var(--h) * 0.019), 9px);
+  letter-spacing: 0.18em;
+  line-height: 1.9;
+  color: rgba(31, 37, 48, 0.8);
+}
+.title-page__credit { margin-block-start: auto; }
+.title-page__editor { margin-block-start: 1.2em; }
+
+/* ---------- 表紙の文字（ふれると上から落ちてきて、ふわりと光る） ---------- */
+.cover__letters {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  transform: translateZ(1px);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  color: var(--light);
+  font-family: var(--mincho);
+}
+
+/* 題名：表紙の元の位置にあわせて縦書き */
+.cover__title {
+  position: absolute;
+  top: 5.37%;
+  left: 84.2%;
+  transform: translateX(-50%);
+  writing-mode: vertical-rl;
+  font-size: calc(var(--h) * 0.095);
+  line-height: 1;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* 大学名・ゼミ名・編者名：下のほうに横書きで中央ぞろえ */
+.cover__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  line-height: 1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cover__line--1 { top: 83.43%; font-size: calc(var(--h) * 0.0215); letter-spacing: 0.26em; padding-left: 0.26em; }
+.cover__line--2 { top: 86.6%;  font-size: calc(var(--h) * 0.0215); letter-spacing: 0.22em; padding-left: 0.22em; }
+.cover__line--3 { top: 89.8%;  font-size: calc(var(--h) * 0.0156); letter-spacing: 0.17em; padding-left: 0.17em; }
+
+.glyph {
+  display: inline-block;
+  opacity: 0;
+}
+
+.book.is-lit .glyph {
+  animation:
+    var(--fall-name) var(--fall) linear var(--delay) both,
+    land 2.4s ease-out calc(var(--delay) + var(--fall) * 0.85) both,
+    afterglow 5s ease-in-out calc(var(--delay) + var(--fall) * 0.85 + 2.4s) infinite alternate;
+}
+
+/* 題名：左上の暗がりから、木の葉のようにゆらりと舞いおりて、自分の場所にすべりこむ
+   （先に着いた文字の上を通らないように、列の左側をおりてくる） */
+@keyframes fall-title {
+  0% {
+    opacity: 0;
+    transform: translate(-1.5em, -2.6em) rotate(-14deg);
+    filter: blur(6px);
+    animation-timing-function: cubic-bezier(0.35, 0, 0.55, 1);
+  }
+  30% { opacity: 0.85; }
+  60% {
+    transform: translate(-1em, -0.55em) rotate(8deg);
+    filter: blur(1.5px);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(0, 0.04em) rotate(0deg);
+    filter: blur(0);
+    animation-timing-function: ease-in-out;
+  }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* 大学名など：真上から、さらさらと降りてくる */
+@keyframes fall-credit {
+  0% {
+    opacity: 0;
+    transform: translate(calc(var(--side) * 0.15em), -1.8em) rotate(calc(var(--side) * 10deg));
+    filter: blur(3px);
+    animation-timing-function: cubic-bezier(0.25, 0.6, 0.35, 1);
+  }
+  40% { opacity: 1; }
+  85% {
+    transform: translate(0, 0.04em) rotate(0deg);
+    filter: blur(0);
+    animation-timing-function: ease-in-out;
+  }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* 定位置についた瞬間、ふわりと光る */
+@keyframes land {
+  0% {
+    color: var(--light);
+    text-shadow: 0 0 0 rgba(255, 248, 234, 0), 0 0 0 rgba(243, 228, 200, 0),
+                 0 0 0 rgba(243, 228, 200, 0), 0 0 0 rgba(243, 228, 200, 0);
+  }
+  15% {
+    color: #fffaf0;
+    text-shadow: 0 0 0.06em rgba(255, 248, 234, 1), 0 0 0.25em rgba(243, 228, 200, 0.85),
+                 0 0 0.7em rgba(243, 228, 200, 0.5), 0 0 1.4em rgba(243, 228, 200, 0.25);
+  }
+  100% {
+    color: var(--light);
+    text-shadow: 0 0 0.05em rgba(243, 228, 200, 0.4), 0 0 0.3em rgba(243, 228, 200, 0.15),
+                 0 0 0 rgba(243, 228, 200, 0), 0 0 0 rgba(243, 228, 200, 0);
+  }
+}
+
+/* そのあとも、本棚の光とおなじように、かすかに呼吸する */
+@keyframes afterglow {
+  from {
+    text-shadow: 0 0 0.05em rgba(243, 228, 200, 0.4), 0 0 0.3em rgba(243, 228, 200, 0.15),
+                 0 0 0 rgba(243, 228, 200, 0), 0 0 0 rgba(243, 228, 200, 0);
+  }
+  to {
+    text-shadow: 0 0 0.06em rgba(243, 228, 200, 0.6), 0 0 0.4em rgba(243, 228, 200, 0.3),
+                 0 0 0.9em rgba(243, 228, 200, 0.12), 0 0 0 rgba(243, 228, 200, 0);
+  }
+}
+
+/* 閉じているとき、表紙にふれると少しだけ浮く */
+.book:not(.is-open) .cover:hover,
+.book:not(.is-open) .cover:focus-visible {
+  transform: rotateY(9deg) translateZ(0px);
+  transition-duration: 0.7s;
+}
+.cover:focus-visible .cover__front { outline: 2px solid var(--light); outline-offset: 6px; }
+
+/* ---------- 案内の文字・ボタン ---------- */
+.hint {
+  position: absolute;
+  bottom: max(3vh, 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: var(--mincho);
+  font-size: 14px;
+  letter-spacing: 0.3em;
+  color: var(--light);
+  white-space: nowrap;
+  transition: opacity 0.8s ease;
+  z-index: 2;
+}
+
+.hint {
+  opacity: 0.6;
+  animation: breathe 3.6s ease-in-out 1.4s infinite;
+}
+.book.is-open ~ .hint { opacity: 0; animation: none; }
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.75; }
+}
+
+/* 本が棚の中にあるあいだの案内「光る一冊を、さがして」は、画面の上のほう（上端から少し下げて）。
+   本棚が明るくなってからゆっくり現れ、そのあとは光らせず、明滅もさせない。
+   うしろに薄い暗がりを敷いて、本棚の上でも読みやすく */
+.stage.is-shelved .hint {
+  top: max(15vh, 56px);
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  padding: 0.9em 2.4em 0.9em calc(2.4em + 0.4em);   /* 字間のぶん、左を足して真ん中に */
+  font-size: clamp(15px, 1.35vw, 19px);
+  letter-spacing: 0.4em;
+  background: radial-gradient(closest-side, rgba(10, 13, 18, 0.6), rgba(10, 13, 18, 0));
+  opacity: 0.75;
+  animation: hint-in 3s ease 1s backwards;
+}
+@keyframes hint-in {
+  from { opacity: 0; }
+  to   { opacity: 0.75; }
+}
+
+/* ページの移動ボタン（ひらいているときだけ出る） */
+.pager {
+  position: absolute;
+  bottom: max(3vh, 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+.book.is-open ~ .pager {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: var(--duration);
+}
+.pager button,
+.marks button {
+  padding: 8px 18px;
+  font-family: var(--mincho);
+  font-size: 14px;
+  letter-spacing: 0.3em;
+  color: var(--light);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid rgba(243, 228, 200, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+.pager button:hover,
+.marks button:hover { opacity: 1; border-color: var(--light); }
+.pager button:disabled,
+.marks button:disabled { opacity: 0.25; cursor: default; border-color: rgba(243, 228, 200, 0.2); }
+.pager button:focus-visible,
+.marks button:focus-visible { outline: 2px solid var(--light); outline-offset: 3px; }
+
+@media (max-width: 480px) {
+  .pager { gap: 8px; }
+  .pager button,
+  .marks button { padding: 6px 12px; font-size: 13px; letter-spacing: 0.12em; }
+  .pager__long { display: none; }   /* せまい画面では「はじめへ」 */
+}
+
+/* ---------- スマートフォン（index.html の頭で .is-phone がつく） ---------- */
+/* 横向きで読む想定。字を大きく、1 行 18 字・1 ページ 8 行に組む */
+:root.is-phone {
+  --line: calc(var(--h) * 0.8);   /* 上下の余白を少しつめて、字を大きく */
+  --chars: 18;
+  --cols: 8;
+  --leading: 1.55;
+}
+.is-phone .pager { gap: 8px; }
+.is-phone .pager button,
+.is-phone .marks button { padding: 6px 12px; font-size: 13px; letter-spacing: 0.12em; }
+.is-phone .pager__long { display: none; }
+
+@media (orientation: landscape) {
+  /* 高さを目いっぱい使う（ボタンは本の左右のあいたところへ） */
+  :root.is-phone { --h: min(90vh, 66vw); }
+  @supports (height: 1dvh) {
+    :root.is-phone { --h: min(90dvh, 66vw); }   /* アドレスバーのぶんを除いた高さ */
+  }
+  /* しおりのボタン：左上に「もどる」、右上に「はさむ」 */
+  .is-phone .marks {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    transform: none;
+    justify-content: space-between;
+  }
+  /* ページの移動：左下に「本をしまう」、右下に「はじめへ」、その上に「本をとじる」 */
+  .is-phone .pager {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    transform: none;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: ". . close" "shelve . first";
+    row-gap: 8px;
+  }
+  .is-phone #shelve { grid-area: shelve; }
+  .is-phone #close { grid-area: close; }
+  .is-phone #first { grid-area: first; }
+  /* ボタンのあいだのすき間は、ページへのタッチを通す */
+  .is-phone .marks.is-shown,
+  .is-phone .book.is-open ~ .pager { pointer-events: none; }
+  .is-phone .marks.is-shown button,
+  .is-phone .book.is-open ~ .pager button { pointer-events: auto; }
+  /* 「表紙にふれて」は右下へ（本と重ならないように） */
+  .is-phone .hint {
+    left: auto;
+    right: 16px;
+    bottom: 16px;
+    transform: none;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+  }
+}
+
+/* 縦向きのスマートフォンには、横向きをすすめる */
+.turn-hint { display: none; }
+@media (orientation: portrait) {
+  .is-phone .turn-hint {
+    display: block;
+    position: absolute;
+    top: calc(max(15vh, 56px) + 56px);   /* 上の案内（光る一冊を、さがして）の下 */
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    font-family: var(--mincho);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--light);
+    white-space: nowrap;
+    opacity: 0.6;
+    z-index: 2;
+    pointer-events: none;
+  }
+}
+
+/* ---------- しおり ---------- */
+/* ボタン：本の上。右に「はさむ」、左に「もどる」。真ん中は羽のためにあけておく */
+.marks {
+  position: absolute;
+  top: max(3vh, 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: calc(var(--h) * 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+}
+.marks.is-shown { opacity: 1; pointer-events: auto; }
+
+/* 羽：ひらいた本の背（画面のまんなか）に、上のふちから少しはみ出して立てかける */
+.feather {
+  --peek: 15%;                                   /* ほかのページにいるとき、のぞいている長さ */
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: calc(50% - var(--h) * 0.58);              /* 本の上のふちより、高さの 8% 上から */
+  width: calc(var(--h) * 0.13);
+  height: calc(var(--h) * 0.69);
+  margin-left: calc(var(--h) * -0.065);
+  transform: rotate(-4deg);
+  pointer-events: none;
+  opacity: 0;
+  /* ほかのページでは、ページのあいだから先だけがのぞく */
+  clip-path: inset(-20% -60% calc(100% - var(--peek)) -60%);
+  /* 暗い背景でも形がわかるよう、ふちに本棚と同じ光。紙の上では、うっすら影 */
+  filter:
+    drop-shadow(0 0 0.6px rgba(243, 228, 200, 0.55))
+    drop-shadow(0 0 10px rgba(243, 228, 200, 0.14))
+    drop-shadow(3px 9px 10px rgba(0, 0, 0, 0.35));
+  transition: opacity 0.4s ease, clip-path 0.8s var(--ease);
+}
+.feather svg { display: block; width: 100%; height: 100%; }
+.feather.is-placed {
+  opacity: 1;
+  transition: opacity 0.9s ease var(--duration), clip-path 0.8s var(--ease);   /* 本がひらききってから */
+}
+.feather.is-here { clip-path: inset(-20% -60% -20% -60%); }   /* しおりの見開き：羽ぜんぶ */
+
+/* はさむとき：上から、振り子のように左右にゆれながら降りてくる */
+.feather.is-placed.is-falling {
+  clip-path: inset(-20% -60% -20% -60%);
+  transition: none;
+  animation: feather-fall 4.2s linear both;
+}
+@keyframes feather-fall {
+  /* 画面のすぐ上（羽ぜんぶが隠れる高さ）から。左右の端で一瞬止まり、まんなかを速く通る */
+  0%   { transform: translate(-13vw, calc(var(--h) * -0.82)) rotate(-56deg); opacity: 0; animation-timing-function: ease-in-out; }
+  5%   { opacity: 1; }
+  22%  { transform: translate(13vw, calc(var(--h) * -0.6)) rotate(28deg);   animation-timing-function: ease-in-out; }
+  41%  { transform: translate(-10vw, calc(var(--h) * -0.4)) rotate(-22deg); animation-timing-function: ease-in-out; }
+  60%  { transform: translate(7vw, calc(var(--h) * -0.22)) rotate(15deg);   animation-timing-function: ease-in-out; }
+  77%  { transform: translate(-3.5vw, calc(var(--h) * -0.08)) rotate(-10deg); animation-timing-function: ease-in-out; }
+  91%  { transform: translate(0.8vw, calc(var(--h) * 0.006)) rotate(-2deg); animation-timing-function: ease-out; }
+  100% { transform: rotate(-4deg); opacity: 1; }
+}
+/* はずすとき：ページのあいだから抜けて、ふわりと舞い上がり、上へ消えていく */
+.feather.is-placed.is-lifting {
+  clip-path: inset(-20% -60% -20% -60%);
+  transition: none;
+  animation: feather-lift 2.2s ease-in both;
+}
+@keyframes feather-lift {
+  0%   { transform: rotate(-4deg); opacity: 1; animation-timing-function: ease-out; }
+  22%  { transform: translate(-1.2vw, calc(var(--h) * -0.07)) rotate(-12deg); animation-timing-function: ease-in-out; }
+  55%  { transform: translate(5vw, calc(var(--h) * -0.36)) rotate(12deg); opacity: 0.85; animation-timing-function: ease-in-out; }
+  100% { transform: translate(-4vw, calc(var(--h) * -0.85)) rotate(-22deg); opacity: 0; }
+}
+
+/* はさまったところで、ふちの光がふわりとふくらんで、しずまる */
+.feather.is-landed { animation: feather-land 1.8s ease-out; }
+@keyframes feather-land {
+  0% {
+    filter:
+      drop-shadow(0 0 1.5px rgba(243, 228, 200, 0.9))
+      drop-shadow(0 0 26px rgba(243, 228, 200, 0.45))
+      drop-shadow(3px 9px 10px rgba(0, 0, 0, 0.35));
+  }
+}
+
+/* 動きを控えめにする設定の人には、すぐ切りかえる */
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration: 0.01s; --turn: 0.01s; }
+  .book, .hint, .leaf { animation: none; }
+  .shelf { transition: none; }
+  .book.is-lit .glyph { animation: land 1.2s ease-out var(--delay) both; opacity: 1; }
+}
+
+/* ---------- うまく読みこめなかったときのお知らせ（左上） ---------- */
+.problems {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 14px 18px 12px;
+  border-radius: 6px;
+  background: rgba(241, 230, 207, 0.97);
+  color: var(--ink);
+  font-family: var(--mincho);
+  font-size: 14px;
+  line-height: 1.7;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+.problems__title { margin: 0 0 6px; font-weight: 600; }
+.problems__list { margin: 0; padding-left: 1.2em; }
+.problems__list li + li { margin-top: 6px; }
+.problems__close {
+  margin-top: 10px;
+  padding: 4px 14px;
+  border: 1px solid rgba(31, 37, 48, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

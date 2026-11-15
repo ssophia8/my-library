@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文芸誌</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // スマートフォン（画面の短いほうの辺が 600px 未満）では、本文の字を大きく組む（css/style.css の .is-phone）。
+    // 画面を回しても組み方が変わらないよう、窓ではなく画面そのものの大きさで決める
+    if (Math.min(screen.width, screen.height) < 600) document.documentElement.classList.add('is-phone');
+  </script>
+</head>
+<body>
+  <!-- このファイルは本の「型」です。書名・表紙の絵・作品などの中身は literatures/ にあります（js/loader.js） -->
+  <main class="stage is-shelved">
+    <!-- 背景の本棚（光で描く）。js/shelf.js が描きます -->
+    <div class="shelf" id="shelf" aria-hidden="true">
+      <canvas class="shelf__glow"></canvas>
+      <canvas class="shelf__books"></canvas>
+      <canvas class="shelf__bloom"></canvas>
+    </div>
+    <div class="atmosphere" aria-hidden="true"></div>
+    <div class="motes" id="motes" aria-hidden="true"></div>
+
+    <!-- 本棚の中で光っている一冊（この本）にふれるところ。js/main.js が本の位置に重ねます -->
+    <button class="pick" id="pick" type="button" aria-label="本棚の中で光っている本を取り出す" hidden></button>
+
+    <!-- 本は、はじめは本棚の中に隠れている（is-shelved）。光る一冊にふれると、棚から出てくる -->
+    <div class="book is-shelved" id="book">
+
+      <!-- 本の背と裏表紙。棚から取り出すときに見える（ふだんは向こうを向いていて見えない） -->
+      <div class="book__back" aria-hidden="true"></div>
+      <div class="book__spine" aria-hidden="true"><span class="book__spine-title"></span></div>
+
+      <!-- 裏表紙の内側（すべてめくり終えたときの左ページ） -->
+      <div class="block" aria-hidden="true">
+        <div class="page page--left page--blank"></div>
+      </div>
+
+      <!-- 表紙（いちばん上の紙）。表が表紙の絵、裏が 1 ページ目（扉） -->
+      <button class="leaf cover" id="cover" type="button" aria-label="表紙">
+        <span class="leaf__face leaf__front cover__front">
+          <img alt="" width="1024" height="1536">
+        </span>
+        <!-- 表紙の文字。ふれると上から一文字ずつ落ちてくる（js/main.js が一文字ずつに分けます） -->
+        <span class="cover__letters" aria-hidden="true">
+          <span class="cover__title" data-fall="title"></span>
+          <span class="cover__line cover__line--1" data-fall="credit"></span>
+          <span class="cover__line cover__line--2" data-fall="credit"></span>
+          <span class="cover__line cover__line--3" data-fall="credit"></span>
+        </span>
+        <span class="leaf__face leaf__back cover__back">
+          <span class="page page--right">
+            <span class="title-page">
+              <span class="title-page__title"></span>
+              <span class="title-page__credit"></span>
+              <span class="title-page__editor"></span>
+            </span>
+            <span class="page__number">1</span>
+          </span>
+        </span>
+      </button>
+
+      <!-- 2 ページ目からの紙は、literatures/ の中身をもとに js/pages.js が組みます -->
+    </div>
+
+    <p class="hint" id="hint">光る一冊を、さがして</p>
+    <p class="turn-hint">横向きにすると、読みやすくなります</p>
+
+    <!-- しおり（js/bookmark.js）。表紙の文字が出揃い、本をひらくと上に出る。真ん中は羽のためにあける -->
+    <nav class="marks" id="marks" aria-label="しおり">
+      <button type="button" id="mark-put">しおりをはさむ</button>
+      <button type="button" id="mark-go">しおりまでもどる</button>
+    </nav>
+
+    <!-- 左の「本をしまう」で、本を本棚の元の場所へもどす。右綴じなので「はじめ」は右。1 枚ずつめくるのは、ページにふれて -->
+    <nav class="pager" id="pager" aria-label="ページの移動">
+      <button type="button" id="shelve">本をしまう</button>
+      <button type="button" id="close">本をとじる</button>
+      <button type="button" id="first" aria-label="はじめのページへ">はじめ<span class="pager__long">のページ</span>へ »</button>
+    </nav>
+  </main>
+
+  <script src="js/shelf.js"></script>
+  <script src="js/loader.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/bookmark.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
