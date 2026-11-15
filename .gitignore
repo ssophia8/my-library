@@ -4,10 +4,13 @@
 *.key
 *.pem
 
-# 文芸誌の中身（表紙の絵・書名・作品）は GitHub に上げない。
-# literatures/sample/（文例）だけは「型」として Git で管理する。
+# 図書館の中身（表紙の絵・書名・作品）は、ふだんは GitHub に上げない。
+# literatures/sample/（文例）と、作者が「公開する」と決めた本のフォルダだけを Git で管理する。
+# （このサイトは GitHub Pages で公開しているので、ここに書いた本は誰でも読めるようになります）
 /literatures/*
 !/literatures/sample/
+# 公開する本
+!/literatures/kaminoko/
 
 # Claude Code の個人用の設定（各自のもの）は上げない
 .claude/settings.local.json
