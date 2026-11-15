@@ -1,9 +1,4 @@
 {
-  "permissions": {
-    "deny": [
-      "Read(/literatures/*.*)"
-    ]
-  },
   "hooks": {
     "PreToolUse": [
       {

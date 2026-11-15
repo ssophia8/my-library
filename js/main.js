@@ -1,6 +1,6 @@
 // 文芸誌 — 本をひらく／めくる／とじる
 // ※ これはプログラムのファイルです。書きかえないでください。
-//   本の文字（題・作品など）を変えるときは、literatures/book.js（sample の外のほう）を書きかえます。
+//   本の文字（題・作品など）を変えるときは、literatures/ の本のフォルダ（kaminoko など）の中を書きかえます。
 //
 // 中身（literatures/）を読みこみ、ページを組んでから動きはじめます。
 (function () {
@@ -60,7 +60,8 @@ function start() {
     lit = true;
     book.classList.add('is-lit');
     litTimers = [
-      setTimeout(function () { hint.textContent = 'もう一度ふれて、ひらく'; }, 5000),
+      // 表紙に文字を降らせない本は、光がふくらんだら、すぐに案内する
+      setTimeout(function () { hint.textContent = 'もう一度ふれて、ひらく'; }, lettersEnd > 0 ? 5000 : 1800),
       // 文字が出揃ったら、しおりのボタンを出せるようにする
       setTimeout(function () { bookmark.lettersDone(); }, (lettersEnd + 0.3) * 1000),
     ];
@@ -96,6 +97,7 @@ function start() {
     firstButton.disabled = current <= 1;
     cover.setAttribute('aria-label', current > 0 ? '1 ページ目（扉）' : coverLabel);
     bookmark.update(current);
+    if (Kotoba.effects) Kotoba.effects.show(current);   // 場面の演出（雨・光の刃・にじみ）
   }
 
   function openBook() {

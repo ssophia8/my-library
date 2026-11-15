@@ -1,19 +1,23 @@
 // 文芸誌 — 本の中身を literatures/ から読みこむ
 // ※ これはプログラムのファイルです。書きかえないでください。
-//   本の文字（題・作品など）を変えるときは、literatures/book.js（sample の外のほう）を書きかえます。
+//   本の文字（題・作品など）を変えるときは、literatures/ の本のフォルダ（kaminoko など）の中を書きかえます。
 //
 // このサイトは「型」（index.html・css・js）と「中身」（literatures/）に分かれています。
 // 中身（表紙の絵・書名・作品）は Git の管理外なので、GitHub には上がりません。
 //
-//   literatures/book.js         … 本の情報と目次（Kotoba.book({...})）
-//   literatures/〇〇.js          … 作品（Kotoba.work({...})）
+//   literatures/〇〇/book.js     … 本の情報と目次（Kotoba.book({...})）。〇〇 は本ごとのフォルダ
+//   literatures/〇〇/△△.js      … 作品（Kotoba.work({...})）
 //   literatures/sample/          … 文例。これだけは Git で管理します
 //
-// literatures/book.js が無いとき（GitHub から取ってきたばかりのときなど）や、
+// 本のフォルダが無いとき（GitHub から取ってきたばかりのときなど）や、
 // index.html?sample と開いたときは、literatures/sample/ の文例で本を組みます。
 //
 // ブラウザでファイルを直接ひらいても動くように、中身は <script> として読みこみます。
 (function () {
+  // 図書館の本棚：literatures/ の中の、本ごとのフォルダの名前（いまは 1 冊目だけを表示）
+  //   フォルダの中に book.js（本の情報）・作品のファイル・表紙の絵をまとめて入れます
+  const LIBRARY = ['kaminoko'];
+
   let book = null;     // Kotoba.book(...) で渡された本の情報
   let entries = [];    // 目次の順に並べた、ページの中身（作品・画像・目次）
   let currentBase = ''; // 中身のフォルダ（literatures/ か literatures/sample/）
@@ -102,11 +106,25 @@
   // ---------- 表紙・扉に、書名などを入れる ----------
   function dressCover(base) {
     const lines = (book.credit || []).concat(book.editor ? [book.editor] : []);
+    // 題名には ｜娘《こ》 のようにふりがなを書ける。ふりがなを除いた題名
+    const title = window.Kotoba.plainText ? window.Kotoba.plainText(book.title) : (book.title || '');
 
-    if (book.title) document.title = book.title;
+    if (title) document.title = title;
+
+    // 本ごとの色（theme）。書かなければ「言葉の在処」の紺と灯りの色
+    const theme = book.theme || {};
+    const root = document.documentElement.style;
+    const vars = {
+      paper: '--paper', ink: '--ink', accent: '--accent',
+      spine: '--spine', spineEdge: '--spine-edge', spineInk: '--spine-ink',
+      back: '--back', backDeep: '--back-deep',
+    };
+    Object.keys(vars).forEach(function (key) { if (theme[key]) root.setProperty(vars[key], theme[key]); });
+    if (theme.glow) root.setProperty('--glow-rgb', theme.glow.join(', '));
+    if (window.Kotoba.shelf && window.Kotoba.shelf.setTheme) window.Kotoba.shelf.setTheme(theme);
 
     const cover = document.getElementById('cover');
-    const label = (book.title ? '『' + book.title + '』表紙。' : '表紙。') + (book.coverAlt || '');
+    const label = (title ? '『' + title + '』表紙。' : '表紙。') + (book.coverAlt || '');
     cover.setAttribute('aria-label', label);
 
     const image = cover.querySelector('.cover__front img');
@@ -118,15 +136,32 @@
       image.remove();
     }
 
-    // 表紙の文字（ふれると落ちてくる）
-    cover.querySelector('.cover__title').textContent = book.title || '';
+    // 表紙の文字（ふれると落ちてくる）。
+    // coverLetters: false のときは、表紙の絵にもう文字が入っているので、重ねない
+    const letters = book.coverLetters !== false;
+    cover.querySelector('.cover__title').textContent = letters ? title : '';
     cover.querySelectorAll('.cover__line').forEach(function (line, i) {
-      if (lines[i]) line.textContent = lines[i]; else line.remove();
+      if (letters && lines[i]) line.textContent = lines[i]; else line.remove();
     });
 
-    // 扉（1 ページ目）
+    // 表紙の絵の中の光（coverLight）。その場所が、ゆっくり息をするように明るくなる
+    const glow = cover.querySelector('.cover__glow');
+    if (book.coverLight && glow) {
+      const at = book.coverLight;
+      glow.style.setProperty('--gx', at.x + '%');
+      glow.style.setProperty('--gy', at.y + '%');
+      glow.style.setProperty('--gl', (at.length || 50) + '%');
+      glow.style.setProperty('--gw', (at.width || 8) + '%');
+      glow.style.setProperty('--ga', (at.angle || 0) + 'deg');
+      glow.hidden = false;
+    }
+
+    // 扉（1 ページ目）。題名の字数に合わせて、1 行に収まる大きさにする
     const titlePage = document.querySelector('.title-page');
-    titlePage.querySelector('.title-page__title').textContent = book.title || '';
+    const titleBox = titlePage.querySelector('.title-page__title');
+    titleBox.textContent = '';
+    if (window.Kotoba.typeset) window.Kotoba.typeset(titleBox, book.title || ''); else titleBox.textContent = title;
+    titleBox.style.setProperty('--title-chars', Array.from(title).length || 1);
     const credit = titlePage.querySelector('.title-page__credit');
     (book.credit || []).forEach(function (text, i) {
       if (i > 0) credit.appendChild(document.createElement('br'));
@@ -155,11 +190,12 @@
     // 中身を読みこんで表紙を整え、ページの中身を返す
     load: function () {
       const wantSample = /(^|[?&])sample(=|&|$)/.test(location.search.slice(1));
+      const shelf = 'literatures/' + LIBRARY[0] + '/';
       const first = wantSample
         ? Promise.reject(new Error('sample'))
-        : loadBook('literatures/').catch(function (error) {
+        : loadBook(shelf).catch(function (error) {
           if (error.broken) {
-            showProblem('literatures フォルダの book.js に書きまちがいがあるようです。かわりに見本の本を出しています。' +
+            showProblem(folderName(shelf) + 'の book.js に書きまちがいがあるようです。かわりに見本の本を出しています。' +
               '\' や , が抜けていないか、全角（’ や ，）になっていないかを見てください。');
           }
           throw error;

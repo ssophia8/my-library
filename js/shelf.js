@@ -76,11 +76,16 @@
     }
   }
 
-  // この本の背（表紙と同じ紺に、上下の細い箔の線）
+  // この本の色と光（本の情報の theme から。js/loader.js が setTheme で渡す）
+  let spotColor = '#1a2029';
+  let SPOT_LIGHT = LIGHT;
+  const spotLight = (a) => `rgba(${SPOT_LIGHT[0]}, ${SPOT_LIGHT[1]}, ${SPOT_LIGHT[2]}, ${a.toFixed(3)})`;
+
+  // この本の背（表紙と同じ色に、上下の細い箔の線）
   function drawSpotBook(ctx, s, level) {
-    ctx.fillStyle = '#1a2029';
+    ctx.fillStyle = spotColor;
     ctx.fillRect(s.x, s.y, s.w, s.h);
-    ctx.fillStyle = light(Math.max(level, 0.3) * 0.9);
+    ctx.fillStyle = spotLight(Math.max(level, 0.3) * 0.9);
     ctx.fillRect(s.x, s.y, s.w, 1);
     ctx.fillStyle = light(0.22);
     ctx.fillRect(s.x + 1, s.y + s.h * 0.06, s.w - 2, 0.8);
@@ -305,9 +310,9 @@
     // 奥からの光：本のまわりのすき間から、ほかの棚より強くもれる（その段の中だけ）
     const r0 = spot.h * 1.0;
     const g = glowCtx.createRadialGradient(cx, cy, 0, cx, cy, r0);
-    g.addColorStop(0, light(1.0 * s));
-    g.addColorStop(0.35, light(0.5 * s));
-    g.addColorStop(1, light(0));
+    g.addColorStop(0, spotLight(1.0 * s));
+    g.addColorStop(0.35, spotLight(0.5 * s));
+    g.addColorStop(1, spotLight(0));
     glowCtx.fillStyle = g;
     const c = spot.cell;
     glowCtx.fillRect(c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0);
@@ -315,15 +320,15 @@
     // 手前に大きくにじむ光
     const r1 = spot.h * (0.75 + 0.3 * pulse);
     const b = bloomCtx.createRadialGradient(cx, cy, 0, cx, cy, r1);
-    b.addColorStop(0, light(0.6 * s));
-    b.addColorStop(0.3, light(0.25 * s));
-    b.addColorStop(1, light(0));
+    b.addColorStop(0, spotLight(0.6 * s));
+    b.addColorStop(0.3, spotLight(0.25 * s));
+    b.addColorStop(1, spotLight(0));
     bloomCtx.fillStyle = b;
     bloomCtx.fillRect(cx - r1, cy - r1, r1 * 2, r1 * 2);
     // 本そのものが内側から光り、ふちがくっきり輝く
-    bloomCtx.fillStyle = light(0.4 * s);
+    bloomCtx.fillStyle = spotLight(0.4 * s);
     bloomCtx.fillRect(spot.x, spot.y, spot.w, spot.h);
-    bloomCtx.strokeStyle = light(1.0 * s);
+    bloomCtx.strokeStyle = spotLight(1.0 * s);
     bloomCtx.lineWidth = 2;
     bloomCtx.strokeRect(spot.x, spot.y, spot.w, spot.h);
   }
@@ -466,6 +471,14 @@
     },
     // 画面の大きさが変わって本棚を組みなおしたとき
     onLayout: function (fn) { listeners.push(fn); },
+    // この本の色（背の色 spine と、光の色 glow = [r, g, b]）。js/loader.js から
+    setTheme: function (theme) {
+      if (!theme) return;
+      if (theme.spine) spotColor = theme.spine;
+      if (theme.glow) SPOT_LIGHT = theme.glow;
+      if (spot && !taken) drawSpotBook(bookCtx, spot, spot.cell.level);
+      drawGlow(performance.now());
+    },
   };
 
   build();

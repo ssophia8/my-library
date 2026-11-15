@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Claude Code の PreToolUse フック：literatures/ の中身を Claude に読ませない。
 
-literatures/ には文芸誌の中身（表紙の絵・書名・作品）が入っていて、Git の管理外です。
-Claude が読んでよいのは literatures/sample/（文例）だけです。
+literatures/ には図書館の中身（表紙の絵・書名・作品）が入っていて、Git の管理外です。
+Claude が読んでよいのは literatures/sample/（文例）と、READABLE に書いたもの
+（作者が「読んでよい」と言ったもの）だけです。
 
 - Read / Write / Edit / NotebookEdit / Grep / Glob … 対象の場所が literatures/（sample 以外）なら止める
 - Bash … コマンドの中で literatures/（sample 以外）を指していたら止める
   （文字列で見ているだけの目安です。確実に止めたいときは sandbox を使ってください）
 
-settings.json の permissions.deny（Read(/literatures/*.*)）と組みにして使います。
-deny は「sample だけ除く」を書けないので literatures/ 直下のファイルしか守れません。
-その外側（literatures/ の中のフォルダや、シェルからの読み取り）をこのフックで埋めています。
+permissions.deny では「この一つだけ除く」が書けないため、my-library ではこのフックだけで守ります。
 """
 import json
 import os
@@ -20,8 +19,12 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 PRIVATE = os.path.join(REPO, "literatures")
 SAMPLE = os.path.join(PRIVATE, "sample")
+# 作者が「読んでよい」と言ったもの（literatures/ からの名前）。足すときは必ず作者に確かめてから。
+#   kaminoko … 『神の娘なんかじゃない』の棚（本の情報・本文・表紙）（2026-11-16 作者の許可）
+READABLE = ["sample", "kaminoko"]
 REASON = ("literatures/ の中身（作品・表紙など）は読まない約束です。"
-          "読めるのは literatures/sample/ の文例だけです。")
+          "読めるのは literatures/sample/ の文例と、作者が許した "
+          + "・".join(READABLE[1:]) + " だけです。")
 
 
 def deny(reason=REASON):
@@ -43,7 +46,8 @@ def is_private(path, cwd):
     if not path:
         return False
     full = os.path.realpath(os.path.join(cwd, os.path.expanduser(str(path))))
-    return inside(full, PRIVATE) and not inside(full, SAMPLE)
+    return inside(full, PRIVATE) and not any(
+        inside(full, os.path.join(PRIVATE, name)) for name in READABLE)
 
 
 # 「literatures」という名前のフォルダを指しているところ（guard-literatures.py などは数えない）
@@ -57,7 +61,8 @@ def mentions_private(text):
     if found and ".." in text:
         return True
     for match in found:
-        if not re.match(r"/sample(/|[\s'\"]|$)", text[match.end():]):
+        names = "|".join(re.escape(name) for name in READABLE)
+        if not re.match(r"/(" + names + r")(/|[\s'\"]|$)", text[match.end():]):
             return True
     return False
 

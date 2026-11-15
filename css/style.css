@@ -10,6 +10,15 @@
   --paper: #f1e6cf;        /* ページの紙 */
   --ink: #1f2530;          /* 本文の文字（紺がかった墨） */
 
+  /* 本ごとの色（本の情報の theme で変わる。js/loader.js が入れる） */
+  --accent: var(--ink);            /* 扉の題・色をつけた言葉 */
+  --spine: var(--night);           /* 本の背 */
+  --spine-edge: #0e1218;           /* 本の背のふち */
+  --spine-ink: var(--light);       /* 背の題の文字 */
+  --back: var(--night-soft);       /* 裏表紙 */
+  --back-deep: var(--night-deep);
+  --glow-rgb: 243, 228, 200;       /* 本をひらいたとき、奥にともるあかりの色 */
+
   /* 本の大きさ（表紙と同じ 2:3。ひらいたとき画面に収まるように） */
   --h: min(80vh, 66vw);
   --w: calc(var(--h) * 2 / 3);
@@ -170,7 +179,7 @@ body {
   height: calc(var(--h) * 1.5);
   transform: translate(-50%, -50%);
   pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(243, 228, 200, 0.16) 0%, rgba(243, 228, 200, 0.05) 40%, transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(var(--glow-rgb), 0.16) 0%, rgba(var(--glow-rgb), 0.05) 40%, transparent 70%);
   opacity: 0;
   transition: opacity var(--duration) var(--ease);
   z-index: 0;
@@ -215,7 +224,9 @@ body {
   transform-origin: left center;
   transform: rotateY(90deg);
   border-radius: 2px;
-  background: linear-gradient(to right, #12161d 0%, var(--night-soft) 22%, var(--night) 62%, #0e1218 100%);
+  background:
+    linear-gradient(to right, rgba(0, 0, 0, 0.35) 0%, rgba(255, 255, 255, 0.08) 22%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.3) 100%),
+    var(--spine);
 }
 /* 背の上下の、細い箔の線 */
 .book__spine::before,
@@ -234,7 +245,7 @@ body {
   font-size: calc(var(--thick) * 0.4);
   letter-spacing: 0.35em;
   white-space: nowrap;
-  color: var(--light);
+  color: var(--spine-ink);
   opacity: 0.85;
 }
 /* 裏表紙：いちばん奥にあって、向こうを向いている面 */
@@ -242,7 +253,7 @@ body {
   inset: 0;
   transform: translateZ(calc(var(--thick) * -1)) rotateY(180deg);
   border-radius: 1px 3px 3px 1px;
-  background: linear-gradient(to bottom, var(--night-soft), var(--night-deep));
+  background: linear-gradient(to bottom, var(--back), var(--back-deep));
 }
 /* 棚から抜き出すとき、背にはまだ棚の光が残っている。しまうときは、棚に近づくにつれて光りだす */
 .book.is-pulling .book__spine { animation: spine-glow 2.6s ease-out; }
@@ -368,6 +379,13 @@ body {
   padding-inline-end: 1em;              /* 作者名は地付きから一字上げ */
   text-align: end;
 }
+/* 縦書きの文字の組み（js/pages.js） */
+.flow .tcy { text-combine-upright: all; }            /* 1〜2 けたの数字は、横に並べて 1 字分に */
+.flow .upright { text-orientation: upright; }        /* IT・NHK などは、1 字ずつ立てる */
+.flow rt { font-size: 0.5em; }
+.flow .is-marked { color: var(--accent); }           /* 色をつけた言葉（作品の marks） */
+.flow .break { text-align: center; }                 /* 場面の区切り（＊）は行の真ん中に */
+
 .flow .signature {
   margin-block-start: var(--pitch);     /* 署名の前に 1 行あける */
   padding-inline-end: 1em;              /* 地付きから一字上げ */
@@ -522,9 +540,16 @@ body {
 }
 .title-page__title {
   align-self: flex-start;
-  font-size: calc(var(--h) * 0.06);
+  /* 題名が長くても 1 行に収まるように、字数（--title-chars。js/loader.js が入れる）に合わせて小さくする */
+  font-size: min(calc(var(--h) * 0.06), calc(var(--h) * 0.72 / (var(--title-chars, 6) * 1.35)));
   letter-spacing: 0.35em;
   line-height: 1;
+  white-space: nowrap;
+  color: var(--accent);
+}
+.title-page__title rt {
+  font-size: 0.4em;
+  letter-spacing: 0;
 }
 .title-page__credit,
 .title-page__editor {
@@ -965,4 +990,173 @@ body {
   color: inherit;
   font: inherit;
   cursor: pointer;
+}
+
+/* =========================================================
+   場面の演出（作品ごと。js/effects.js・js/pages.js・本の情報の coverLight）
+   ========================================================= */
+
+/* ---------- 表紙の絵の中の光：息をするように明るくなる ---------- */
+.cover__glow {
+  position: absolute;
+  left: var(--gx);
+  top: var(--gy);
+  width: var(--gl);
+  height: var(--gw);
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgba(255, 248, 232, 0.95), rgba(255, 222, 200, 0.55) 45%, rgba(255, 196, 186, 0) 100%);
+  transform: translate(-50%, -50%) rotate(var(--ga)) scale(0.92, 0.7);
+  opacity: 0.15;
+  animation: tear-breathe 4.6s ease-in-out infinite;
+}
+.cover__glow[hidden] { display: none; }
+/* まわりにひろがる、うすいにじみ */
+.cover__glow::after {
+  content: "";
+  position: absolute;
+  inset: -160% -18%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 210, 196, 0.42), rgba(255, 200, 190, 0) 100%);
+}
+@keyframes tear-breathe {
+  0%, 100% { opacity: 0.12; transform: translate(-50%, -50%) rotate(var(--ga)) scale(0.92, 0.7); }
+  50%      { opacity: 0.8;  transform: translate(-50%, -50%) rotate(var(--ga)) scale(1.04, 1.15); }
+}
+/* 表紙にふれると、裂け目の光がふくらむ */
+.book.is-lit .cover__glow {
+  animation: tear-swell 2.2s ease-out forwards, tear-breathe-lit 3.6s ease-in-out 2.2s infinite;
+}
+@keyframes tear-swell {
+  from { opacity: 0.3; transform: translate(-50%, -50%) rotate(var(--ga)) scale(0.95, 0.8); }
+  to   { opacity: 1;   transform: translate(-50%, -50%) rotate(var(--ga)) scale(1.18, 1.9); }
+}
+@keyframes tear-breathe-lit {
+  0%, 100% { opacity: 1;    transform: translate(-50%, -50%) rotate(var(--ga)) scale(1.18, 1.9); }
+  50%      { opacity: 0.65; transform: translate(-50%, -50%) rotate(var(--ga)) scale(1.06, 1.4); }
+}
+
+/* ---------- 雨（js/effects.js が canvas に描く） ---------- */
+.rain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.rain--back  { z-index: 0; }
+.rain--front { z-index: 2; }
+/* 雨のあいだは、本棚のあかりが雨にけむる */
+.stage.is-raining .shelf.is-ready { opacity: 0.45; transition: opacity 3s ease; }
+
+/* ---------- 光の刃：見開きを斜めに横切る一筋の光 ---------- */
+/* 3 つの層を、ひらいた見開き（本 2 冊ぶんの幅）に重ねる */
+/* 場所（--bl・--bt・--bw・--bh）は、js/effects.js がひらいた本の位置から入れる */
+.blade {
+  position: absolute;
+  left: var(--bl, 0px);
+  top: var(--bt, 0px);
+  width: var(--bw, 0px);
+  height: var(--bh, 0px);
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+/* 1. カーテンの閉じた部屋の薄暗さ（めくった右ページは遠近で少し大きく見えるので、ひとまわり広く） */
+.blade--veil {
+  left: calc(var(--bl, 0px) - 6px);
+  top: calc(var(--bt, 0px) - 10px);
+  width: calc(var(--bw, 0px) + 14px);
+  height: calc(var(--bh, 0px) + 20px);
+  border-radius: 4px;
+  background: rgba(46, 16, 28, 0.34);
+}
+/* 2. 裂け目から差しこむ光（表紙の裂け目と同じ向き） */
+.blade--beam {
+  left: calc(var(--bl, 0px) + var(--bw, 0px) * 0.5);
+  top: calc(var(--bt, 0px) + var(--bh, 0px) * 0.46);
+  width: calc(var(--bw, 0px) * 2.6);
+  height: calc(var(--bh, 0px) * 0.16);
+  margin-left: calc(var(--bw, 0px) * -1.3);
+  margin-top: calc(var(--bh, 0px) * -0.08);
+  mix-blend-mode: screen;
+  background: linear-gradient(to bottom,
+    rgba(255, 214, 190, 0) 0%,
+    rgba(255, 222, 200, 0.28) 32%,
+    rgba(255, 244, 228, 0.95) 49%,
+    rgba(255, 252, 244, 1) 50%,
+    rgba(255, 244, 228, 0.95) 51%,
+    rgba(255, 222, 200, 0.28) 68%,
+    rgba(255, 214, 190, 0) 100%);
+  transform: rotate(-33deg) scaleY(0);
+  filter: blur(0.6px);
+}
+/* 3. 朝の光が、だんだんとあたたかく照らしていく */
+.blade--warm {
+  mix-blend-mode: soft-light;
+  background: radial-gradient(ellipse 70% 90% at 58% 42%, rgba(255, 184, 132, 0.85), rgba(255, 196, 150, 0.35) 60%, rgba(255, 210, 170, 0.1) 100%);
+}
+
+.stage.is-blade .blade--veil { animation: blade-veil 10s ease forwards; }
+.stage.is-blade .blade--beam { animation: blade-beam 10s cubic-bezier(0.3, 0, 0.2, 1) forwards; }
+.stage.is-blade .blade--warm { animation: blade-warm 10s ease forwards; }
+@keyframes blade-veil {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  45%  { opacity: 0.85; }
+  100% { opacity: 0.05; }
+}
+@keyframes blade-beam {
+  0%, 12% { opacity: 0;    transform: rotate(-33deg) scaleY(0); }
+  18%     { opacity: 1;    transform: rotate(-33deg) scaleY(0.05); }   /* 薄い刃のように */
+  45%     { opacity: 1;    transform: rotate(-33deg) scaleY(0.3); }
+  100%    { opacity: 0.55; transform: rotate(-33deg) scaleY(1); }
+}
+@keyframes blade-warm {
+  0%, 35% { opacity: 0; }
+  100%    { opacity: 1; }
+}
+/* 動きを控えめにする設定のときは、光が差しこんだあとの姿だけを見せる */
+.stage.is-blade-still .blade--veil { animation: none; opacity: 0.05; }
+.stage.is-blade-still .blade--beam { animation: none; opacity: 0.55; transform: rotate(-33deg) scaleY(1); }
+.stage.is-blade-still .blade--warm { animation: none; opacity: 1; }
+
+/* ---------- 水彩のにじみ（js/pages.js が、その言葉のあるページに置く） ---------- */
+.bleed {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  filter: url(#watercolor);
+}
+.bleed__blot {
+  position: absolute;
+  /* その言葉のあたり（--bx・--by は、本文の窓の中での位置 0〜1） */
+  left: calc(50% + (var(--bx) - 0.5) * var(--pitch) * var(--cols) + var(--ox, 0px));
+  top: calc((var(--h) - var(--line)) / 2 - var(--h) * 0.01 + (var(--by) + 0.18) * var(--line) + var(--oy, 0px));
+  width: calc(var(--w) * var(--size, 0.5));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.08);
+  background: radial-gradient(closest-side, var(--pigment), rgba(240, 170, 160, 0) 100%);
+}
+.bleed__blot--1 { --pigment: rgba(226, 118, 98, 0.46);  --size: 0.72; }
+.bleed__blot--2 { --pigment: rgba(236, 146, 126, 0.42); --size: 0.5;  --ox: calc(var(--w) * -0.16); --oy: calc(var(--h) * 0.16); }
+.bleed__blot--3 { --pigment: rgba(214, 98, 108, 0.36);  --size: 0.42; --ox: calc(var(--w) * 0.14);  --oy: calc(var(--h) * 0.26); }
+.bleed__blot--4 { --pigment: rgba(244, 174, 144, 0.42); --size: 0.56; --ox: calc(var(--w) * -0.06); --oy: calc(var(--h) * -0.14); }
+.page.is-visible .bleed__blot { animation: bleed 8s cubic-bezier(0.2, 0.6, 0.2, 1) forwards; }
+.page.is-visible .bleed__blot--2 { animation-delay: 0.9s; }
+.page.is-visible .bleed__blot--3 { animation-delay: 1.8s; }
+.page.is-visible .bleed__blot--4 { animation-delay: 2.6s; }
+@keyframes bleed {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(0.08); }
+  18%  { opacity: 1; }
+  100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover__glow, .book.is-lit .cover__glow { animation: none; opacity: 0.6; }
+  .page.is-visible .bleed__blot { animation: none; opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
 }

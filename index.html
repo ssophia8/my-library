@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>文芸誌</title>
+  <title>my library</title>
   <link rel="stylesheet" href="css/style.css">
   <script>
     // スマートフォン（画面の短いほうの辺が 600px 未満）では、本文の字を大きく組む（css/style.css の .is-phone）。
@@ -22,6 +22,8 @@
     </div>
     <div class="atmosphere" aria-hidden="true"></div>
     <div class="motes" id="motes" aria-hidden="true"></div>
+    <!-- 場面の演出（js/effects.js）。雨は本の奥と手前に降る -->
+    <canvas class="rain rain--back" id="rain-back" aria-hidden="true"></canvas>
 
     <!-- 本棚の中で光っている一冊（この本）にふれるところ。js/main.js が本の位置に重ねます -->
     <button class="pick" id="pick" type="button" aria-label="本棚の中で光っている本を取り出す" hidden></button>
@@ -42,6 +44,8 @@
       <button class="leaf cover" id="cover" type="button" aria-label="表紙">
         <span class="leaf__face leaf__front cover__front">
           <img alt="" width="1024" height="1536">
+          <!-- 表紙の絵の中の光（本の情報の coverLight で場所を決める）。息をするように明るくなる -->
+          <span class="cover__glow" aria-hidden="true" hidden></span>
         </span>
         <!-- 表紙の文字。ふれると上から一文字ずつ落ちてくる（js/main.js が一文字ずつに分けます） -->
         <span class="cover__letters" aria-hidden="true">
@@ -51,7 +55,7 @@
           <span class="cover__line cover__line--3" data-fall="credit"></span>
         </span>
         <span class="leaf__face leaf__back cover__back">
-          <span class="page page--right">
+          <span class="page page--right" data-page="1">
             <span class="title-page">
               <span class="title-page__title"></span>
               <span class="title-page__credit"></span>
@@ -64,6 +68,19 @@
 
       <!-- 2 ページ目からの紙は、literatures/ の中身をもとに js/pages.js が組みます -->
     </div>
+
+    <canvas class="rain rain--front" id="rain-front" aria-hidden="true"></canvas>
+    <!-- 光の刃：見開きが薄暗くなり、一筋の光が斜めに差しこんで、だんだんとあたたかくなる（js/effects.js） -->
+    <div class="blade blade--veil" aria-hidden="true"></div>
+    <div class="blade blade--beam" aria-hidden="true"></div>
+    <div class="blade blade--warm" aria-hidden="true"></div>
+    <!-- 水彩のにじみのふちを、紙ににじんだようにゆらす -->
+    <svg class="filters" width="0" height="0" aria-hidden="true" focusable="false">
+      <filter id="watercolor" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="7" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="38" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </svg>
 
     <p class="hint" id="hint">光る一冊を、さがして</p>
     <p class="turn-hint">横向きにすると、読みやすくなります</p>
@@ -86,6 +103,7 @@
   <script src="js/loader.js"></script>
   <script src="js/pages.js"></script>
   <script src="js/bookmark.js"></script>
+  <script src="js/effects.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
