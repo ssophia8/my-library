@@ -109,7 +109,8 @@
     // 題名には ｜娘《こ》 のようにふりがなを書ける。ふりがなを除いた題名
     const title = window.Kotoba.plainText ? window.Kotoba.plainText(book.title) : (book.title || '');
 
-    if (title) document.title = title;
+    // ページの題名（ブックマークに出る「光る一冊を、さがして」）は変えずに、本の題名は本の背のために取っておく
+    document.getElementById('book').dataset.title = title;
 
     // 本ごとの色（theme）。書かなければ「言葉の在処」の紺と灯りの色
     const theme = book.theme || {};

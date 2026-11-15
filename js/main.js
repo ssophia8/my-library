@@ -18,7 +18,7 @@ function start() {
 
   // 背表紙に書名を入れる（表紙の題が一文字ずつに分かれる前に）
   book.querySelector('.book__spine-title').textContent =
-    book.querySelector('.cover__title').textContent || document.title;
+    book.querySelector('.cover__title').textContent || book.dataset.title || '';
 
   // ---------- 表紙の文字を一文字ずつに分ける ----------
   // 題名はゆっくり一文字ずつ、そのあと大学名などがさらさらと落ちてくる
