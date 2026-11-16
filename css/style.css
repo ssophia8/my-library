@@ -20,7 +20,7 @@
   --glow-rgb: 243, 228, 200;       /* 本をひらいたとき、奥にともるあかりの色 */
 
   /* 本の大きさ（表紙と同じ 2:3。ひらいたとき画面に収まるように） */
-  --h: min(80vh, 66vw);
+  --h: min(80vh, calc(100vh - 170px), 66vw);   /* 上の「しおり」と下のボタンのぶん（上下 85px ずつ）はあけておく */
   --w: calc(var(--h) * 2 / 3);
   --thick: calc(var(--h) * 0.085);   /* 本の厚み（背の幅。js/shelf.js の SPINE と同じ割合） */
 
@@ -1162,6 +1162,15 @@ body {
 .stage.is-blade-still .blade--veil { animation: none; opacity: 0.05; }
 .stage.is-blade-still .blade--beam { animation: none; opacity: 0.55; transform: rotate(-33deg) scaleY(1); }
 .stage.is-blade-still .blade--warm { animation: none; opacity: 1; }
+
+/* にじみのふちをゆらす SVG の filter 置き場（index.html）。見えない部品なので、本の置き場所に影響しないように */
+.filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 
 /* ---------- 水彩のにじみ（js/pages.js が、その言葉のあるページに置く） ---------- */
 .bleed {
