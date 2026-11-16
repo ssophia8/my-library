@@ -293,13 +293,10 @@
       });
     });
 
-    // 2 ページずつ（表＝左、裏＝右）1 枚の紙にする
-    let z = 1;
+    // 2 ページずつ（表＝左、裏＝右）1 枚の紙にする（重なりの奥行きは js/main.js の restack が決める）
     let anchor = cover;
     for (let i = 0; i < pages.length; i += 2) {
       const leaf = element('div', 'leaf');
-      leaf.style.setProperty('--z', z++);
-
       const front = element('div', 'leaf__face leaf__front');
       pages[i].classList.add('page--left');
       front.appendChild(pages[i]);
@@ -314,10 +311,6 @@
       anchor.after(leaf);
       anchor = leaf;
     }
-
-    // 裏表紙の内側は、いちばん下
-    const block = book.querySelector('.block');
-    if (block) block.style.setProperty('--z', z);
 
     window.Kotoba.scenes = scenes;
   }

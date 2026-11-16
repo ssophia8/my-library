@@ -79,11 +79,27 @@ function start() {
     return (parseFloat(getComputedStyle(leaf).transitionDuration) || 1) * 1000;
   }
 
+  // 紙の奥行き（--d）：いま見えている紙を 0 にして、その下の紙ほど奥へ。
+  //   左（めくっていない紙）は前のものほど上、右（めくった紙）はあとでめくったものほど上。
+  //   見開きの左右がいつも同じ平面・同じ大きさになり、重なり順もはっきりする
+  function restack() {
+    let unflipped = 0;
+    leaves.forEach(function (leaf) {
+      if (!leaf.classList.contains('is-flipped')) leaf.style.setProperty('--d', unflipped++);
+    });
+    let flipped = 0;
+    for (let i = leaves.length - 1; i >= 0; i--) {
+      if (leaves[i].classList.contains('is-flipped')) leaves[i].style.setProperty('--d', flipped++);
+    }
+    block.style.setProperty('--d', unflipped);   // 裏表紙の内側は、めくっていない紙のさらに下
+  }
+
   // index 番目の紙をめくる（flipped = true）／もどす（false）
   function turn(index, flipped, delay) {
     const leaf = leaves[index];
     function go() {
       leaf.classList.toggle('is-flipped', flipped);
+      restack();
       leaf.classList.remove('is-turning');
       void leaf.offsetWidth;                 // 影のアニメーションを最初から
       leaf.classList.add('is-turning');
@@ -93,7 +109,19 @@ function start() {
     if (delay) setTimeout(go, delay); else go();
   }
 
+  // 小口（重なった紙のふち）の厚み：左はまだ読んでいない紙、右は読んだ紙。
+  // 本の厚さぜんぶ（edgeAll）を、読んだ割合で左右に分ける
+  function updateEdges() {
+    const n = leaves.length;
+    const edgeAll = Math.min(book.offsetWidth * 0.045, Math.max(5, n * 0.75));
+    const read = current / n;
+    book.style.setProperty('--edge-l', (current === 0 ? 0 : edgeAll * (1 - read)).toFixed(2) + 'px');
+    book.style.setProperty('--edge-r', (edgeAll * read).toFixed(2) + 'px');
+  }
+
   function update() {
+    restack();
+    updateEdges();
     firstButton.disabled = current <= 1;
     cover.setAttribute('aria-label', current > 0 ? '1 ページ目（扉）' : coverLabel);
     bookmark.update(current);
