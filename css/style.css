@@ -22,7 +22,8 @@
   /* 本の大きさ（表紙と同じ 2:3。ひらいたとき画面に収まるように） */
   --h: min(80vh, calc(100vh - 170px), 66vw);   /* 上の「しおり」と下のボタンのぶん（上下 85px ずつ）はあけておく */
   --w: calc(var(--h) * 2 / 3);
-  --thick: calc(var(--h) * 0.085);   /* 本の厚み（背の幅。js/shelf.js の SPINE と同じ割合） */
+  --thick: calc(var(--h) * 0.045);   /* 本の厚み（背の幅。js/shelf.js の SPINE と同じ割合） */
+  --step: 1px;   /* 紙 1 枚ぶんの奥行き。紙の束が背の幅に収まるよう、js/main.js が「厚み ÷ 枚数」を入れる */
 
   /* 紙の質感（細かなざらつきと、うっすらとした繊維） */
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.28 0 0 0 0 0.22 0.13 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
@@ -330,7 +331,7 @@ body {
   background: var(--paper-surface), var(--paper);
   /* 紙の重なり（小口）は .book__edge で見せる */
   box-shadow: -12px 22px 40px rgba(0, 0, 0, 0.55);
-  transform: translateZ(calc(var(--d, 0) * -1px));
+  transform: translateZ(calc(var(--d, 0) * var(--step) * -1));
 }
 
 /* ---------- ページ ---------- */
@@ -481,7 +482,8 @@ body {
    右側が背（綴じ目）。めくると右側へ 180 度まわる。
    --d は、いまひらいている見開きから何枚下にあるか（js/main.js の restack が入れる）。
    見えている左右のページはどちらも 0 で、いつも同じ平面・同じ大きさになる。
-   下の紙だけが 1 枚ごとに 1px ずつ奥へさがり、重なり順がはっきり決まる（厚みは .book__edge の小口で見せる） */
+   下の紙だけが 1 枚ごとに --step ずつ奥へさがり、重なり順がはっきり決まる。紙の束ぜんぶで、ちょうど背の幅（--thick）に収まる
+   （ひらいたときの厚みは .book__edge の小口で見せる） */
 .leaf {
   position: absolute;
   inset: 0;
@@ -489,10 +491,10 @@ body {
   cursor: pointer;
   transform-style: preserve-3d;
   transform-origin: right center;
-  transform: rotateY(0deg) translateZ(calc(var(--d, 0) * -1px));
+  transform: rotateY(0deg) translateZ(calc(var(--d, 0) * var(--step) * -1));
   transition: transform var(--turn) var(--ease);
 }
-.leaf.is-flipped { transform: rotateY(180deg) translateZ(calc(var(--d, 0) * 1px)); }
+.leaf.is-flipped { transform: rotateY(180deg) translateZ(calc(var(--d, 0) * var(--step))); }
 .cover { --turn: var(--duration); }
 
 .leaf__face {

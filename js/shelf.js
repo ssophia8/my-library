@@ -28,7 +28,7 @@
 
   // 棚に隠れている一冊（この本）。ほかの棚と同じように、でもより強い光で静かに明滅する。
   // ふれると js/main.js が棚から取り出す
-  const SPINE = 0.085;        // 本の厚み ÷ 高さ（css/style.css の --thick と同じ割合）
+  const SPINE = 0.045;        // 本の厚み ÷ 高さ（css/style.css の --thick と同じ割合）
   const SPOT_PERIOD = 4200;   // 明滅の周期（ミリ秒）
   let spot = null;            // その本の場所 { x, y, w, h }（画面の上での位置と大きさ）
   let taken = false;          // 取り出したあとか

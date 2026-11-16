@@ -82,6 +82,16 @@ function start() {
   // 紙の奥行き（--d）：いま見えている紙を 0 にして、その下の紙ほど奥へ。
   //   左（めくっていない紙）は前のものほど上、右（めくった紙）はあとでめくったものほど上。
   //   見開きの左右がいつも同じ平面・同じ大きさになり、重なり順もはっきりする
+  // 紙 1 枚ぶんの奥行き（--step）＝ 本の厚み（背の幅）÷ 紙の枚数。
+  // 紙が何枚あっても、紙の束ぜんぶが背と裏表紙のあいだに収まり、白い紙がはみ出さない
+  const spine = book.querySelector('.book__spine');
+  function setStep() {
+    const thick = spine ? spine.offsetWidth : book.offsetHeight * 0.045;
+    book.style.setProperty('--step', (thick / (leaves.length + 1)).toFixed(3) + 'px');
+  }
+  setStep();
+  window.addEventListener('resize', setStep);
+
   function restack() {
     let unflipped = 0;
     leaves.forEach(function (leaf) {
@@ -113,7 +123,8 @@ function start() {
   // 本の厚さぜんぶ（edgeAll）を、読んだ割合で左右に分ける
   function updateEdges() {
     const n = leaves.length;
-    const edgeAll = Math.min(book.offsetWidth * 0.045, Math.max(5, n * 0.75));
+    const thick = spine ? spine.offsetWidth : book.offsetWidth * 0.045;
+    const edgeAll = Math.min(thick, Math.max(5, n * 0.75));   // 本の厚みより厚くはしない
     const read = current / n;
     book.style.setProperty('--edge-l', (current === 0 ? 0 : edgeAll * (1 - read)).toFixed(2) + 'px');
     book.style.setProperty('--edge-r', (edgeAll * read).toFixed(2) + 'px');
